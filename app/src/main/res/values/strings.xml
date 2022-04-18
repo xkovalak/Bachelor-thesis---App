@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">MyApplication</string>
+    <string name="ip">IP</string>
+    <string name="connect">Connect</string>
+</resources>

@@ -1,4 +1,4 @@
-package com.example.myapplication
+package com.kovalak.bakalarka
 
 import org.junit.Test
 

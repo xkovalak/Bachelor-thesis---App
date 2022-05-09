@@ -1,13 +1,9 @@
-package com.example.myapplication
+package com.kovalak.bakalarka
 
-import android.security.keystore.KeyProperties
-import android.security.keystore.KeyProtection
 import java.io.ObjectInputStream
 import java.io.ObjectOutputStream
 import java.security.KeyStore
-import java.security.PrivateKey
 import java.security.cert.Certificate
-import javax.crypto.SecretKey
 import javax.net.ssl.KeyManagerFactory
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
@@ -23,7 +19,7 @@ class HttpsClient(
 
     private lateinit var socket: SSLSocket
 
-    fun connect() {
+    fun connect(): Result {
         try {
             val sslContext = createSSLContext()
             Timber.d("SSLContext created")
@@ -47,13 +43,14 @@ class HttpsClient(
 
             Timber.d("Receiving key")
             val input = ObjectInputStream(socket.inputStream)
-            val key = input.readObject() as SecretKey
+            val receivedKey = input.readObject() as ByteArray
 
-//            storeKey(key)
+            Timber.e("Key: ${String(receivedKey)}")
 
-            Timber.e("Key: ${String(key.encoded)}")
+            return Result.Success(receivedKey)
         } catch (ex: Exception) {
             Timber.e(ex)
+            return Result.Failure(ex.message ?: "Error")
         }
     }
 
@@ -75,24 +72,5 @@ class HttpsClient(
         context.init(keyManager.keyManagers, trustManagerFactory.trustManagers, null)
 
         return context
-    }
-
-    private fun storeKey(key: SecretKey) {
-        val keyStore = KeyStore.getInstance(ANDROID_KEY_STORE)
-        keyStore.load(null, null)
-
-        keyStore.setEntry(
-            "key1",
-            KeyStore.SecretKeyEntry(key),
-            KeyProtection.Builder(KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
-                .setBlockModes(KeyProperties.BLOCK_MODE_CTR)
-                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-                .build()
-        )
-    }
-
-    companion object {
-        private const val ANDROID_KEY_STORE = "AndroidKeyStore"
-        private const val APP_PRIVATE_KEY_ALIAS = "app_private_key_alias"
     }
 }

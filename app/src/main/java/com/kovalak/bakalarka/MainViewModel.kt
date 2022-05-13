@@ -12,9 +12,16 @@ import com.hadilq.liveevent.LiveEvent
 import java.security.KeyStore
 import java.security.PrivateKey
 import java.security.cert.CertificateFactory
+import javax.crypto.SecretKey
+import javax.crypto.SecretKeyFactory
+import javax.crypto.spec.SecretKeySpec
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelChildren
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import timber.log.Timber
+
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -22,16 +29,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val result: LiveData<Result>
         get() = _result
 
-    private var masterKey: MasterKey
-
-    init {
-        val keyGenParameterSpec = MasterKeys.AES256_GCM_SPEC
-
-        masterKey = MasterKey.Builder(getApplication(), MasterKey.DEFAULT_MASTER_KEY_ALIAS)
-            .setKeyGenParameterSpec(keyGenParameterSpec)
-            .build()
-    }
-
+    var serverJob: Job? = null
 
     fun onConnect(ip: String) {
         _result.postValue(Result.Processing)
@@ -42,7 +40,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val certFactory = CertificateFactory.getInstance("X.509")
         val serverCert = certFactory.generateCertificate(serverCertContent.inputStream())
 
-        viewModelScope.launch(Dispatchers.IO) {
+        serverJob = viewModelScope.launch(Dispatchers.IO) {
             val res = HttpsClient(
                 ip.takeIf { it.isNotBlank() } ?: "192.168.0.73",
                 7879,
@@ -50,44 +48,67 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 serverCert,
             ).connect()
 
-            _result.postValue(res)
+            if (this.isActive) {
+                _result.postValue(res)
+            } else {
+                Timber.d("Job was cancelled, ignoring result")
+            }
         }
     }
 
     fun save3DESKey(receivedKey: ByteArray) {
-        val keyStore = KeyStore.getInstance(ANDROID_KEY_STORE)
-        keyStore.load(null)
-
-        Timber.d("Is key entry: ${keyStore.isKeyEntry(KEY_ALIAS)}")
-
-        val rsaKey = keyStore.getKey(KEY_ALIAS, null) as PrivateKey
-
-        val decryptedKey = decrypt(rsaKey, "RSA/ECB/PKCS1Padding", receivedKey)
-        Timber.d("Decrypted key: ${String(decryptedKey)}")
-
+        Timber.d("Saving key...")
         val sharedPreferences = getEncryptedSharedPreferences()
 
         with(sharedPreferences.edit()) {
-            putString(KEY_3DES, String(decryptedKey, Charsets.ISO_8859_1))
+            putString(KEY_3DES, String(receivedKey, Charsets.ISO_8859_1))
             apply()
         }
     }
 
-    fun test() {
+    fun get3DESKey(): SecretKey? {
+        val keyStore = KeyStore.getInstance(ANDROID_KEY_STORE).also {
+            it.load(null)
+        }
+
+        val rsaKey = keyStore.getKey(KEY_ALIAS, null) as PrivateKey
         val sharedPreferences = getEncryptedSharedPreferences()
 
-        val key = sharedPreferences.getString(KEY_3DES, null)
-        Timber.e("======: $key")
+        val encryptedKey = sharedPreferences.getString(KEY_3DES, null) ?: return null
+
+        val decryptedKey =
+            decrypt(rsaKey, "RSA/ECB/PKCS1Padding", encryptedKey.toByteArray(Charsets.ISO_8859_1))
+        Timber.d("Decrypted key: ${decryptedKey.toHexString()}")
+
+        val keySpec =
+            SecretKeySpec(decryptedKey, "DESede")
+        val tripleDesKey = SecretKeyFactory.getInstance("DESede").generateSecret(keySpec)
+
+        return tripleDesKey
     }
 
-    private fun getEncryptedSharedPreferences(): SharedPreferences =
-        EncryptedSharedPreferences.create(
+    private fun getEncryptedSharedPreferences(): SharedPreferences {
+        val keyGenParameterSpec = MasterKeys.AES256_GCM_SPEC
+
+        val masterKey = MasterKey.Builder(getApplication(), MasterKey.DEFAULT_MASTER_KEY_ALIAS)
+            .setKeyGenParameterSpec(keyGenParameterSpec)
+            .build()
+
+        return EncryptedSharedPreferences.create(
             getApplication(),
             SHARED_PREF_FILE,
             masterKey,
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
         )
+    }
+
+    fun onCancel() {
+        serverJob?.cancelChildren()
+        serverJob?.cancel()
+        Timber.d("Canceling...")
+        _result.postValue(Result.Failure("Canceled by user"))
+    }
 
     companion object {
         private const val KEY_3DES = "key_3des"

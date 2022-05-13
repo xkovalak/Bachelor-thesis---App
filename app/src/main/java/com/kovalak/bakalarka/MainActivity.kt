@@ -26,7 +26,7 @@ class MainActivity : AppCompatActivity() {
             hideKeyboard()
             viewModel.onConnect(binding.ip.text.toString())
         }
-        binding.testButton.setOnClickListener { viewModel.test() }
+        binding.cancelButton.setOnClickListener { viewModel.onCancel() }
 
         viewModel.result.observe(this, ::onResult)
     }
@@ -37,20 +37,22 @@ class MainActivity : AppCompatActivity() {
                 binding.resultText.text = ""
                 binding.connectButton.visibility = View.INVISIBLE
                 binding.progressIndicator.visibility = View.VISIBLE
-
+                binding.cancelButton.visibility = View.VISIBLE
             }
             is Result.Failure -> {
                 binding.connectButton.visibility = View.VISIBLE
                 binding.progressIndicator.visibility = View.INVISIBLE
+                binding.cancelButton.visibility = View.INVISIBLE
 
                 binding.resultText.text = getString(R.string.failure, result.message)
             }
             is Result.Success -> {
                 binding.connectButton.visibility = View.VISIBLE
                 binding.progressIndicator.visibility = View.INVISIBLE
+                binding.cancelButton.visibility = View.INVISIBLE
 
                 binding.resultText.text =
-                    getString(R.string.success, String(result.key, Charsets.ISO_8859_1))
+                    getString(R.string.success, result.key.toHexString())
 
                 viewModel.save3DESKey(result.key)
             }

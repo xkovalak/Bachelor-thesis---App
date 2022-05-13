@@ -6,6 +6,7 @@ import android.view.inputmethod.InputMethodManager
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import com.kovalak.bakalarka.databinding.ActivityMainBinding
+import com.kovalak.bakalarka.entities.Result
 import timber.log.Timber
 
 class MainActivity : AppCompatActivity() {

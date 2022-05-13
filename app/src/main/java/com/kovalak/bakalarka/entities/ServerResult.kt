@@ -1,4 +1,4 @@
-package com.kovalak.bakalarka
+package com.kovalak.bakalarka.entities
 
 import kotlinx.serialization.Serializable
 

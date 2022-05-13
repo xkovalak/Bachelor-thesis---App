@@ -1,4 +1,4 @@
-package com.kovalak.bakalarka
+package com.kovalak.bakalarka.entities
 
 sealed class Result {
     class Success(val key: ByteArray) : Result()

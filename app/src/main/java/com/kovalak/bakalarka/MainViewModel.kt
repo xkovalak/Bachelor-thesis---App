@@ -9,6 +9,7 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import androidx.security.crypto.MasterKeys
 import com.hadilq.liveevent.LiveEvent
+import com.kovalak.bakalarka.entities.Result
 import java.security.KeyStore
 import java.security.PrivateKey
 import java.security.cert.CertificateFactory

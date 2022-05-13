@@ -1,5 +1,7 @@
 package com.kovalak.bakalarka
 
+import com.kovalak.bakalarka.entities.Result
+import com.kovalak.bakalarka.entities.ServerResult
 import java.io.ObjectInputStream
 import java.io.ObjectOutputStream
 import java.security.KeyStore
